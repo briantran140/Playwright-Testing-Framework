@@ -1,25 +1,40 @@
 // @ts-check
 import { test, expect, request } from '@playwright/test';
 const loginPayload = {userEmail: "anshika@gmail.com", userPassword: "Iamking@000"}
-
+const orderPayload = {orders: [{country:"India", productOrderedId: "62023a7617fcf72fe9dfc619"}]}
+let token;
+let orderId;
 test.beforeAll( async () => {
+
+    // Login API
     const apiContext = await request.newContext();
     const loginResponse = await apiContext.post("https://www.rahulshettyacademy.com/api/ecom/auth/login", {data: loginPayload});
 
     expect(loginResponse.ok()).toBeTruthy();
-    const loginResponseJson = loginResponse.json();
+    const loginResponseJson = await loginResponse.json();
     // @ts-ignore
-    const token = loginResponseJson.token;
+    token = loginResponseJson.token;
+
+    const orderResponse = await apiContext.post("https://rahulshettyacademy.com/api/ecom/order/create-order", {
+      data: orderPayload,
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    const orderResponseJson = orderResponse.json();
+    orderId = orderResponseJson.orders[0];
 })
 
 test.only('Client App Login', async ({ page }) => {
   const productName = 'Zara Coat 4';
   const products = page.locator(".card-body");
-  await page.goto("https://www.rahulshettyacademy.com/client/auth/login");
-  await page.locator("#userEmail").fill("anshika@gmail.com");
-  await page.locator("#userPassword").fill("Iamking@1");
-  await page.locator("[value='Login']").click();
-  await page.waitForLoadState("networkidle");
+  await page.addInitScript(value => {
+    window.localStorage.setItem('token', value)
+  }, token)
+
+  await page.goto("https://rahulshettyyacademy.com/client/");
+
   const titles = await page.locator(".card-body b").allTextContents();
 
   const count = await products.count();
@@ -70,3 +85,6 @@ test.only('Client App Login', async ({ page }) => {
   expect(orderId?.includes(orderIdDetails)).toBeTruthy();
 
 });
+
+// Verify if order created is showing in history page
+// Precondition - create order -
